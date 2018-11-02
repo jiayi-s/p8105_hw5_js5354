@@ -1,0 +1,44 @@
+---
+title: "HW5 js5354"
+author: "Jiayi Shen"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rvest)
+set.seed(1)
+```
+
+
+## Problem 1
+```{r load study data}
+# create a dataframe containing all file names
+participant_files = as.data.frame(list.files(path = "./data")) 
+# rename column
+colnames(participant_files)[1] = 'path' 
+
+# create a function to read in data for each subject 
+read_participant_files = function (path) {
+  df = 
+    read.csv(str_c("./data/", path)) %>% 
+    janitor::clean_names() %>% 
+    as.data.frame()
+  
+  df
+}
+
+# saving the result as a new variable in the dataframe
+participant_data = 
+  map(participant_files$path, read_participant_files) %>% 
+  bind_rows()
+
+participant_data =
+bind_cols(participant_files, participant_data)
+```
+
+```{r tidy study data}
+
+```
+
