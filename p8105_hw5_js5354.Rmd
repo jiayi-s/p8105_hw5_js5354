@@ -54,8 +54,6 @@ participant_data %>%
   arrange(group, ID, week)
 
 
-# Is it necessary to spread the dataset?? 
-
 ```
 
 ```{r plotting observations on each subject over time}
@@ -97,14 +95,14 @@ homicide_data %>%
 homicide_data = 
 homicide_data %>% 
   group_by(city_state) %>% 
-  mutate(total = length(uid))
+  mutate(total = length(uid)) 
 
 # the number of unsolved homicides
 homicide_data = 
 homicide_data %>% 
-  filter(disposition %in% c("Closed without arrest", "Open/No arrest")) %>% 
+  filter(disposition == "Closed by arrest") %>% 
   group_by(city_state) %>% 
-  mutate(unsolved = length(uid)) 
+  mutate(unsolved = total - length(uid)) 
 
 # Table that shows total and unsolved cases.
 unsolved_summary = 
@@ -120,7 +118,7 @@ unsolved_summary %>% knitr::kable()
 # prop.test
 
 prop_homicide_btm = 
-  prop.test(x = unsolved_summary$unsolved[unsolved_summary$city_state == "Baltimore,MD"], 
+  prop.test(x = unsolved_summary$unsolved[unsolved_summary$city_state =="Baltimore,MD"], 
             n = unsolved_summary$total[unsolved_summary$city_state == "Baltimore,MD"],
             alternative = "two.sided") %>% 
   broom::tidy()
