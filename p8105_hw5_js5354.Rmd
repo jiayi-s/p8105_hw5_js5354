@@ -5,17 +5,18 @@ output: github_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,
+                      dpi = 300)
 library(tidyverse)
 library(rvest)
-set.seed(1)
+
 ```
 
 
 ## Problem 1
 ```{r load study data}
 # create a dataframe containing all file names
-participant_files = as.data.frame(list.files(path = "./data")) 
+participant_files = as.data.frame(list.files(path = "./data")[1:20]) 
 # rename column
 colnames(participant_files)[1] = 'path' 
 
@@ -58,6 +59,7 @@ participant_data %>%
 ```
 
 ```{r plotting observations on each subject over time}
+# plotting observations on each subject over time
 participant_data %>% 
   group_by(ID) %>% 
   ggplot(aes(x = as.numeric(week), y = value, color = ID)) +
@@ -70,3 +72,93 @@ participant_data %>%
 ```
 
 On week 1, the mean observation values for the control group was `r round(mean(filter(participant_data, group == "con", week == 1)$value), digits = 2)` and that of the experimental group was `r round(mean(filter(participant_data, group == "exp", week == 1)$value), digits = 2)`. Though both the control arm and the experimental arm started off around 1, values in the experimental arm showed a significant increase over the 8-week course and ended up around `r round(mean(filter(participant_data, group == "exp", week == 8)$value), digits = 2)` on average. On the other hand, the observation values of the control arm stayed relatively steady over time. 
+
+
+
+##Problem 2
+```{r load homicide data, message = FALSE}
+homicide_data = read_csv("./data/homicide-data.csv")
+```
+
+`homicide-data.csv` records `r dim(homicide_data)[1]` cases of homicide across `r dim(distinct(homicide_data, city))[1]` in `r dim(distinct(homicide_data, state))[1]` different states. For each case, there is an unique UID. In addition, reported date, characteristics of the victim (including full name, race, age and sex), geographic locations of the reported case are recorded in each entry of this dataset. Status of disposition of each case is also included, being either "Closed by arrest", "Closed without arrest" or "Open/No arrest". 
+
+
+```{r Create a city_state variable}
+#Create a city_state variable
+homicide_data =
+homicide_data %>% 
+  mutate(city_state = str_c(city, ",", state)) %>% 
+  select(-city, -state)
+```
+
+
+```{r number of homicide}
+# summarize within cities to obtain the total number of homicides
+homicide_data = 
+homicide_data %>% 
+  group_by(city_state) %>% 
+  mutate(total = length(uid))
+
+# the number of unsolved homicides
+homicide_data = 
+homicide_data %>% 
+  filter(disposition %in% c("Closed without arrest", "Open/No arrest")) %>% 
+  group_by(city_state) %>% 
+  mutate(unsolved = length(uid)) 
+
+# Table that shows total and unsolved cases.
+unsolved_summary = 
+homicide_data %>% 
+  distinct(city_state, unsolved, total) %>% 
+  as.data.frame()
+
+unsolved_summary %>% knitr::kable()
+```
+
+```{r the proportion of unsolved homicide in Baltimore}
+
+# prop.test
+
+prop_homicide_btm = 
+  prop.test(x = unsolved_summary$unsolved[unsolved_summary$city_state == "Baltimore,MD"], 
+            n = unsolved_summary$total[unsolved_summary$city_state == "Baltimore,MD"],
+            alternative = "two.sided") %>% 
+  broom::tidy()
+
+# pull the estimated proportion and confidence intervals 
+prop_homicide_btm["estimate"]
+cbind(prop_homicide_btm["conf.low"], prop_homicide_btm["conf.high"])
+```
+
+```{r prop.test for each city}
+# Create a function to produce neat proportion test result
+neat_prop_test = function (city) {
+  result = 
+    prop.test(x = unsolved_summary$unsolved[unsolved_summary$city_state == city],
+              n = unsolved_summary$total[unsolved_summary$city_state == city], 
+              alternative = "two.sided") %>% 
+    broom::tidy()
+  
+}
+
+# integrate the proportion test result into the summary dataframe.
+unsolved_summary = 
+unsolved_summary %>% 
+  mutate(prop_test = map(unsolved_summary$city_state, neat_prop_test)) %>% 
+  unnest()
+
+```
+
+
+```{r plotting the estimates and CIs for each city}
+# plotting the estimates and CIs for each city
+unsolved_summary  %>% 
+  mutate(city_state = fct_reorder(city_state, estimate)) %>% 
+  arrange(city_state) %>% 
+  ggplot(aes(x = city_state, y = estimate)) +
+  geom_point()+
+  geom_errorbar(aes( ymin = conf.low, ymax = conf.high)) +
+  labs(x = "City", y = "Estimated Proportions") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+```
+
